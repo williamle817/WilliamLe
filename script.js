@@ -135,7 +135,6 @@
 		Waves.radius = Math.sqrt(Math.pow(Waves.width, 2) + Math.pow(Waves.height, 2)) / 2;
 		Waves.centerX = Waves.width / 2;
 		Waves.centerY = Waves.height / 2;
-		//Waves.radius /= 2; // REMOVE FOR FULLSREEN
 	};
 
 	Waves.prototype.updateColor = function () {
@@ -151,9 +150,9 @@
 			Waves.Waves = true;
 		}
 
-		var a = Math.floor(127 * Math.sin(0.3 * Waves.hue + 0) + 128);
-		var b = Math.floor(127 * Math.sin(0.3 * Waves.hue + 2) + 128);
-		var c = Math.floor(127 * Math.sin(0.3 * Waves.hue + 4) + 128);
+		var a = 70;
+		var b = 178;
+		var c = 255;
 
 		Waves.color = 'rgba(' + a + ',' + b + ',' + c + ', 0.1)';
 	};
@@ -165,13 +164,12 @@
 		Wave.Waves = Waves;
 		Wave.Lines = [];
 
-		Wave.angle = [
-			rnd(pi2),
-			rnd(pi2),
-			rnd(pi2),
-			rnd(pi2)
-		];
+		Wave.base = [rnd(2*Math.PI), rnd(2*Math.PI), rnd(2*Math.PI), rnd(2*Math.PI)];
 
+		var rotOpt = Waves.options.rotation;
+		Wave.rotation = Array.isArray(rotOpt) ? dtr(rnd(rotOpt[0], rotOpt[1])) : dtr(rotOpt);
+
+		Wave.angle = [rnd(2*Math.PI), rnd(2*Math.PI), rnd(2*Math.PI), rnd(2*Math.PI)];
 		Wave.speed = [
 			rnd(speed[0], speed[1]) * rnd_sign(),
 			rnd(speed[0], speed[1]) * rnd_sign(),
@@ -179,6 +177,7 @@
 			rnd(speed[0], speed[1]) * rnd_sign(),
 		];
 
+		Wave.amp = Waves.options.amplitude * rnd(0.7, 1.3);
 		return Wave;
 	}
 
@@ -200,7 +199,7 @@
 
 		var ctx = Waves.ctx;
 		var radius = Waves.radius;
-		var radius3 = radius / 3;
+		var radius3 = radius / 2;
 		var x = Waves.centerX;
 		var y = Waves.centerY;
 		var rotation = dtr(Waves.options.rotation);
@@ -260,6 +259,8 @@
 			Math.sin(angle[2] += speed[2]),
 			Math.sin(angle[3] += speed[3])
 		];
+
+		Line.rotJ = rnd(-0.5, 0.5);
 
 		Line.color = color;
 	}
