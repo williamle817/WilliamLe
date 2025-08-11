@@ -289,14 +289,9 @@ a:hover > i {
 	text-shadow: 0 0 32px #333;
 }
 
-#instagram:hover {
-	color: #d62976;
-	text-shadow: 0 0 32px #962fbf;
-}
-
 #resume:hover {
-	color: #F40F02;
-	text-shadow: 0 0 32px #2D2E2D;
+	color: #FFD700;
+	text-shadow: 0 0 32px #FFD800;
 }
 
 @media only screen and (max-width: 640px) {
