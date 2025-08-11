@@ -304,6 +304,10 @@ a:hover > i {
 		flex-direction: column !important;
 	}
 
+	#row {
+		width: 300px;
+	}
+
 	#card {
 		padding: 1rem;
 	}
@@ -315,6 +319,10 @@ a:hover > i {
 	#background {
 		display: none;
 	}
+
+	#col2 {
+        display: none;
+    }
 
 	body {
 		background: #111;
