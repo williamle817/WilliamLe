@@ -324,3 +324,10 @@ a:hover > i {
 		overflow: auto;
 	}
 }
+
+#project_link {
+	color: var(--primary-light);
+	text-decoration: none;
+	text-decoration: underline;
+	transition: color cubic-bezier(0.5, 0, 0.5, 1) 300ms;
+}
