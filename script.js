@@ -1,371 +1,294 @@
-// Background
+// Background: a living git graph that drifts slowly to the left.
+// Branches fork off, commit, and merge back as new columns scroll in from the right.
 (function () {
+	const holder = document.getElementById('background');
+	if (!holder) return;
 
-	var pi = Math.PI;
-	var pi2 = 2 * Math.PI;
+	const canvas = document.createElement('canvas');
+	const ctx = canvas.getContext('2d');
+	holder.appendChild(canvas);
 
-	this.Waves = function (holder, options) {
-		var Waves = this;
+	const COLORS = ['#5ea8f2', '#f68124', '#2dd4bf', '#a78bfa', '#f472b6', '#4ade80'];
+	const ROOT_NAMES = ['main', 'develop', 'release', 'staging'];
+	const BRANCH_NAMES = [
+		'feat/auth', 'feat/ui', 'fix/api', 'exp/algo', 'perf/cache', 'refactor/core', 'feat/search', 'fix/race',
+		'chore/ci', 'icpc/dp', 'icpc/dijkstra', 'test/e2e', 'docs/readme', 'feat/graph', 'fix/overflow', 'perf/simd',
+	];
 
-		Waves.options = extend(options || {}, {
-			resize: false,
-			rotation: 45,
-			waves: 5,
-			width: 100,
-			hue: [11, 14],
-			amplitude: 0.5,
-			background: true,
-			preload: true,
-			speed: [0.004, 0.008],
-			debug: false,
-			fps: false,
-		});
+	const STEP = 64;            // horizontal distance between columns of commits
+	const LANE = 56;            // vertical distance between lanes
+	const SPEED = 14;           // drift speed in px per second
+	const COMMIT_CHANCE = 0.6;
+	const FORK_CHANCE = 0.08;
+	const MERGE_CHANCE = 0.06;
+	const MAX_ACTIVE = 0.6;     // share of lanes that may hold a branch at once
 
-		Waves.waves = [];
+	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-		Waves.holder = document.querySelector(holder);
-		Waves.canvas = document.createElement('canvas');
-		Waves.ctx = Waves.canvas.getContext('2d');
-		Waves.holder.appendChild(Waves.canvas);
+	let width, height, dpr, laneTop, slots, edges, nodes, labels, column, offset, colorIndex, lastTime, frame;
 
-		Waves.hue = Waves.options.hue[0];
-		Waves.hueFw = true;
-		Waves.stats = new Stats();
+	const laneY = (slot) => laneTop + slot * LANE;
+	const pick = (list) => list[Math.floor(Math.random() * list.length)];
+	const nextColor = () => COLORS[colorIndex++ % COLORS.length];
+	const activeBranches = () => slots.filter(Boolean);
 
-		Waves.resize();
-		Waves.init(Waves.options.preload);
-
-		if (Waves.options.resize)
-			window.addEventListener('resize', function () {
-				Waves.resize();
-			}, false);
-
-	};
-
-	Waves.prototype.init = function (preload) {
-		var Waves = this;
-		var options = Waves.options;
-
-		for (var i = 0; i < options.waves; i++)
-			Waves.waves[i] = new Wave(Waves);
-
-		if (preload) Waves.preload();
-	};
-
-	Waves.prototype.preload = function () {
-		var Waves = this;
-		var options = Waves.options;
-
-		for (var i = 0; i < options.waves; i++) {
-			Waves.updateColor();
-			for (var j = 0; j < options.width; j++) {
-				Waves.waves[i].update();
-			}
+	function freeSlotNear(slot) {
+		for (let d = 1; d <= 3; d++) {
+			const candidates = [slot - d, slot + d].filter((s) => s >= 0 && s < slots.length && !slots[s]);
+			if (candidates.length) return pick(candidates);
 		}
-	};
-
-	Waves.prototype.render = function () {
-		var Waves = this;
-		var ctx = Waves.ctx;
-		var options = Waves.options;
-
-		Waves.updateColor();
-		Waves.clear();
-
-		if (Waves.options.debug) {
-			ctx.beginPath();
-			ctx.strokeStyle = '#f00';
-			ctx.arc(Waves.centerX, Waves.centerY, Waves.radius, 0, pi2);
-			ctx.stroke();
-		}
-
-		if (Waves.options.background) {
-			Waves.background();
-		}
-
-		each(Waves.waves, function (wave, i) {
-			wave.update();
-			wave.draw();
-		});
-	};
-
-	Waves.prototype.animate = function () {
-		var Waves = this;
-
-		Waves.render();
-
-		if (Waves.options.fps) {
-			Waves.stats.log();
-			Waves.ctx.font = '12px Arial';
-			Waves.ctx.fillStyle = '#fff';
-			Waves.ctx.fillText(Waves.stats.fps() + ' FPS', 10, 22);
-		}
-
-		window.requestAnimationFrame(Waves.animate.bind(Waves));
-	};
-
-	Waves.prototype.clear = function () {
-		var Waves = this;
-		Waves.ctx.clearRect(0, 0, Waves.width, Waves.height);
-	};
-
-	Waves.prototype.background = function () {
-		var Waves = this;
-		var ctx = Waves.ctx;
-
-		var gradient = Waves.ctx.createLinearGradient(0, 0, 0, Waves.height);
-		gradient.addColorStop(0, '#000');
-		gradient.addColorStop(1, Waves.color);
-
-		ctx.fillStyle = gradient;
-		ctx.fillRect(0, 0, Waves.width, Waves.height);
-	};
-
-	Waves.prototype.resize = function () {
-		var Waves = this;
-		var width = Waves.holder.offsetWidth;
-		var height = Waves.holder.offsetHeight;
-		Waves.scale = window.devicePixelRatio || 1;
-		Waves.width = width * Waves.scale;
-		Waves.height = height * Waves.scale;
-		Waves.canvas.width = Waves.width;
-		Waves.canvas.height = Waves.height;
-		Waves.canvas.style.width = 100 + '%';
-		Waves.canvas.style.height = 100 + '%';
-		Waves.radius = Math.sqrt(Math.pow(Waves.width, 2) + Math.pow(Waves.height, 2)) / 2;
-		Waves.centerX = Waves.width / 2;
-		Waves.centerY = Waves.height / 2;
-	};
-
-	Waves.prototype.updateColor = function () {
-		var Waves = this;
-
-		Waves.hue += (Waves.hueFw) ? 0.01 : -0.01;
-
-		if (Waves.hue > Waves.options.hue[1] && Waves.hueFw) {
-			Waves.hue = Waves.options.hue[1];
-			Waves.Waves = false;
-		} else if (Waves.hue < Waves.options.hue[0] && !Waves.hueFw) {
-			Waves.hue = Waves.options.hue[0];
-			Waves.Waves = true;
-		}
-
-		var a = 70;
-		var b = 178;
-		var c = 255;
-
-		Waves.color = 'rgba(' + a + ',' + b + ',' + c + ', 0.1)';
-	};
-
-	function Wave(Waves) {
-		var Wave = this;
-		var speed = Waves.options.speed;
-
-		Wave.Waves = Waves;
-		Wave.Lines = [];
-
-		Wave.base = [rnd(2*Math.PI), rnd(2*Math.PI), rnd(2*Math.PI), rnd(2*Math.PI)];
-
-		var rotOpt = Waves.options.rotation;
-		Wave.rotation = Array.isArray(rotOpt) ? dtr(rnd(rotOpt[0], rotOpt[1])) : dtr(rotOpt);
-
-		Wave.angle = [rnd(2*Math.PI), rnd(2*Math.PI), rnd(2*Math.PI), rnd(2*Math.PI)];
-		Wave.speed = [
-			rnd(speed[0], speed[1]) * rnd_sign(),
-			rnd(speed[0], speed[1]) * rnd_sign(),
-			rnd(speed[0], speed[1]) * rnd_sign(),
-			rnd(speed[0], speed[1]) * rnd_sign(),
-		];
-
-		Wave.amp = Waves.options.amplitude * rnd(0.7, 1.3);
-		return Wave;
+		return -1;
 	}
 
-	Wave.prototype.update = function () {
-		var Wave = this;
-		var Lines = Wave.Lines;
-		var color = Wave.Waves.color;
-
-		Lines.push(new Line(Wave, color));
-
-		if (Lines.length > Wave.Waves.options.width) {
-			Lines.shift();
+	function mergeTarget(branch) {
+		let best = null;
+		for (const other of slots) {
+			if (!other || other === branch || other.merging) continue;
+			const distance = Math.abs(other.slot - branch.slot);
+			if (distance <= 4 && (!best || distance < Math.abs(best.slot - branch.slot))) best = other;
 		}
-	};
+		return best;
+	}
 
-	Wave.prototype.draw = function () {
-		var Wave = this;
-		var Waves = Wave.Waves;
+	function extend(branch, x, y) {
+		edges.push({ x1: branch.x, y1: branch.y, x2: x, y2: y, color: branch.color });
+		branch.x = x;
+		branch.y = y;
+		branch.age++;
+	}
 
-		var ctx = Waves.ctx;
-		var radius = Waves.radius;
-		var radius3 = radius / 2;
-		var x = Waves.centerX;
-		var y = Waves.centerY;
-		var rotation = dtr(Waves.options.rotation);
-		var amplitude = Waves.options.amplitude;
-		var debug = Waves.options.debug;
+	function generateColumn() {
+		const x = column * STEP;
+		const branches = activeBranches();
+		const committed = new Set();
 
-		var Lines = Wave.Lines;
+		// Decide merges up front so a merging branch is never picked as another one's target
+		for (const b of branches) b.merging = !b.root && b.age > 2 && Math.random() < MERGE_CHANCE;
 
-		each(Lines, function (line, i) {
-			if (debug && i > 0) return;
+		for (const b of branches) {
+			if (b.merging) continue;
+			const y = laneY(b.slot);
+			const bends = b.y !== y;
+			extend(b, x, y);
+			if (bends || Math.random() < COMMIT_CHANCE) {
+				nodes.push({ x, y, color: b.color });
+				committed.add(b);
+			}
+			if (b.root && (column + b.slot * 7) % 24 === 0)
+				labels.push({ x: x + 8, y: y - 9, text: b.name, color: b.color });
+		}
 
-			var angle = line.angle;
+		for (const b of branches) {
+			if (!b.merging) continue;
+			b.merging = false;
+			const target = mergeTarget(b);
+			if (!target) {
+				extend(b, x, laneY(b.slot));
+				continue;
+			}
+			extend(b, x, target.y);
+			nodes.push({ x, y: target.y, color: target.color, merge: true });
+			slots[b.slot] = null;
+		}
 
-			var x1 = x - radius * Math.cos(angle[0] * amplitude + rotation);
-			var y1 = y - radius * Math.sin(angle[0] * amplitude + rotation);
-			var x2 = x + radius * Math.cos(angle[3] * amplitude + rotation);
-			var y2 = y + radius * Math.sin(angle[3] * amplitude + rotation);
-			var cpx1 = x - radius3 * Math.cos(angle[1] * amplitude * 2);
-			var cpy1 = y - radius3 * Math.sin(angle[1] * amplitude * 2);
-			var cpx2 = x + radius3 * Math.cos(angle[2] * amplitude * 2);
-			var cpy2 = y + radius3 * Math.sin(angle[2] * amplitude * 2);
+		let active = activeBranches().length;
+		for (const b of activeBranches()) {
+			if (active >= slots.length * MAX_ACTIVE || Math.random() >= FORK_CHANCE) continue;
+			const slot = freeSlotNear(b.slot);
+			if (slot < 0) continue;
+			if (!committed.has(b)) nodes.push({ x, y: b.y, color: b.color });
+			const child = { slot, color: nextColor(), x, y: b.y, age: 0, root: false };
+			slots[slot] = child;
+			labels.push({ x: x + STEP + 8, y: laneY(slot) - 9, text: pick(BRANCH_NAMES), color: child.color });
+			active++;
+		}
 
-			ctx.strokeStyle = (debug) ? '#fff' : line.color;
+		column++;
+	}
 
+	function fill() {
+		while (column * STEP < offset + width + STEP) generateColumn();
+	}
+
+	function prune() {
+		const left = offset - STEP;
+		edges = edges.filter((e) => e.x2 > left);
+		nodes = nodes.filter((n) => n.x > left);
+		labels = labels.filter((l) => l.x > left - 160);
+	}
+
+	function draw() {
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		ctx.clearRect(0, 0, width, height);
+		ctx.translate(-offset, 0);
+
+		ctx.lineWidth = 2;
+		ctx.lineCap = 'round';
+		ctx.globalAlpha = 0.32;
+		for (const e of edges) {
+			ctx.strokeStyle = e.color;
 			ctx.beginPath();
-			ctx.moveTo(x1, y1);
-			ctx.bezierCurveTo(cpx1, cpy1, cpx2, cpy2, x2, y2);
+			ctx.moveTo(e.x1, e.y1);
+			if (e.y1 === e.y2) ctx.lineTo(e.x2, e.y2);
+			else ctx.bezierCurveTo(e.x1 + STEP * 0.6, e.y1, e.x2 - STEP * 0.6, e.y2, e.x2, e.y2);
 			ctx.stroke();
+		}
 
-			if (debug) {
-				ctx.strokeStyle = '#fff';
-				ctx.globalAlpha = 0.3;
-
-				ctx.beginPath();
-				ctx.moveTo(x1, y1);
-				ctx.lineTo(cpx1, cpy1);
-				ctx.stroke();
-				ctx.beginPath();
-				ctx.moveTo(x2, y2);
-				ctx.lineTo(cpx2, cpy2);
-				ctx.stroke();
-
+		for (const n of nodes) {
+			ctx.beginPath();
+			if (n.merge) {
 				ctx.globalAlpha = 1;
+				ctx.fillStyle = '#05070d';
+				ctx.arc(n.x, n.y, 5.5, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.globalAlpha = 0.75;
+				ctx.strokeStyle = n.color;
+				ctx.stroke();
+			} else {
+				ctx.globalAlpha = 0.6;
+				ctx.fillStyle = n.color;
+				ctx.arc(n.x, n.y, 3.5, 0, Math.PI * 2);
+				ctx.fill();
 			}
-		});
-	};
-
-	function Line(Wave, color) {
-		var Line = this;
-
-		var angle = Wave.angle;
-		var speed = Wave.speed;
-
-		Line.angle = [
-			Math.sin(angle[0] += speed[0]),
-			Math.sin(angle[1] += speed[1]),
-			Math.sin(angle[2] += speed[2]),
-			Math.sin(angle[3] += speed[3])
-		];
-
-		Line.rotJ = rnd(-0.5, 0.5);
-
-		Line.color = color;
-	}
-
-	function Stats() {
-		this.data = [];
-	}
-
-	Stats.prototype.time = function () {
-		return (performance || Date)
-			.now();
-	};
-
-	Stats.prototype.log = function () {
-		if (!this.last) {
-			this.last = this.time();
-			return 0;
 		}
 
-		this.new = this.time();
-		this.delta = this.new - this.last;
-		this.last = this.new;
-
-		this.data.push(this.delta);
-		if (this.data.length > 10)
-			this.data.shift();
-	};
-
-	Stats.prototype.fps = function () {
-		var fps = 0;
-		each(this.data, function (data, i) {
-			fps += data;
-		});
-
-		return Math.round(1000 / (fps / this.data.length));
-	};
-
-	function each(items, callback) {
-		for (var i = 0; i < items.length; i++) {
-			callback(items[i], i);
+		ctx.globalAlpha = 0.45;
+		ctx.font = '500 11px "JetBrains Mono", ui-monospace, monospace';
+		for (const l of labels) {
+			ctx.fillStyle = l.color;
+			ctx.fillText(l.text, l.x, l.y);
 		}
+		ctx.globalAlpha = 1;
 	}
 
-	function extend(options, defaults) {
-		for (var key in options)
-			if (defaults.hasOwnProperty(key))
-				defaults[key] = options[key];
-		return defaults;
+	function sizeCanvas() {
+		dpr = Math.min(window.devicePixelRatio || 1, 2);
+		width = holder.clientWidth;
+		height = holder.clientHeight;
+		canvas.width = Math.round(width * dpr);
+		canvas.height = Math.round(height * dpr);
 	}
 
-	function dtr(deg) {
-		return deg * pi / 180;
+	function init() {
+		sizeCanvas();
+		const count = Math.ceil(height / LANE) + 1;
+		laneTop = (height - (count - 1) * LANE) / 2;
+		slots = new Array(count).fill(null);
+		edges = [];
+		nodes = [];
+		labels = [];
+		colorIndex = 0;
+		column = 0;
+
+		// Long-lived branches spread down the screen so the whole height has activity
+		for (let s = 1, i = 0; s < count; s += 4, i++)
+			slots[s] = { slot: s, color: nextColor(), x: 0, y: laneY(s), age: 0, root: true, name: ROOT_NAMES[i % ROOT_NAMES.length] };
+
+		// Start with some history already on screen
+		offset = STEP * 24;
+		fill();
+		prune();
 	}
 
-	function rtd(rad) {
-		return rad * 180 / pi;
+	function tick(now) {
+		const dt = lastTime ? Math.min((now - lastTime) / 1000, 0.1) : 0;
+		lastTime = now;
+		offset += SPEED * dt;
+		fill();
+		prune();
+		draw();
+		frame = requestAnimationFrame(tick);
 	}
 
-	function diagonal_angle(w, h) {
-		var a = Math.atan2(h, w) * 1.27325;
-		return a;
+	function start() {
+		cancelAnimationFrame(frame);
+		lastTime = 0;
+		init();
+		if (reducedMotion.matches) draw();
+		else frame = requestAnimationFrame(tick);
 	}
 
-	function rnd(a, b) {
-		if (arguments.length == 1)
-			return Math.random() * a;
-		return a + Math.random() * (b - a);
-	}
+	let resizeTimer;
+	window.addEventListener('resize', () => {
+		clearTimeout(resizeTimer);
+		resizeTimer = setTimeout(() => {
+			// Mobile browser bars change the height a little while scrolling; don't rebuild the graph for that
+			if (holder.clientWidth === width && Math.abs(holder.clientHeight - height) < 120) {
+				sizeCanvas();
+				draw();
+			} else {
+				start();
+			}
+		}, 150);
+	});
+	reducedMotion.addEventListener('change', start);
 
-	function rnd_sign() {
-		return (Math.random() > 0.5) ? 1 : -1;
-	}
-
+	start();
 })();
 
-var waves = new Waves('#background', {
-	waves: 3,
-	width: 300,
-});
+// Terminal intro: types a couple of commands, then reveals the card.
+// The <head> script decides whether it plays; any key, click or scroll skips it.
+(function () {
+	const root = document.documentElement;
+	const term = document.querySelector('#intro .term');
+	if (!root.classList.contains('intro') || !term) return;
 
-waves.animate();
+	const steps = [
+		{ cmd: 'whoami', out: 'william-le' },
+		{ cmd: './portfolio --open' },
+	];
+	const skipEvents = ['keydown', 'pointerdown', 'wheel', 'touchstart'];
+	const caret = document.createElement('span');
+	caret.className = 'caret';
+	let timer;
+	let finished = false;
 
-// Button Ripple Effect
-function createRipple(event) {
-	const button = event.currentTarget;
-
-	const circle = document.createElement("span");
-	const diameter = Math.max(button.clientWidth, button.clientHeight);
-	const radius = diameter / 2;
-
-	circle.style.width = circle.style.height = `${diameter}px`;
-	circle.style.left = `${event.clientX - button.offsetLeft - radius}px`;
-	circle.style.top = `${event.clientY - button.offsetTop - radius}px`;
-	circle.classList.add("ripple");
-
-	const ripple = button.getElementsByClassName("ripple")[0];
-
-	if (ripple) {
-		ripple.remove();
+	function finish() {
+		if (finished) return;
+		finished = true;
+		clearTimeout(timer);
+		try {
+			sessionStorage.setItem('intro-seen', '1');
+		} catch (e) { }
+		root.classList.remove('intro');
+		skipEvents.forEach((type) => window.removeEventListener(type, finish));
 	}
 
-	button.appendChild(circle);
-}
+	function addLine(className) {
+		const line = document.createElement('p');
+		if (className) line.className = className;
+		term.appendChild(line);
+		return line;
+	}
 
-const buttons = document.getElementsByTagName("button");
-for (const button of buttons) {
-	button.addEventListener("click", createRipple);
-}
+	function run(index) {
+		if (index >= steps.length) {
+			timer = setTimeout(finish, 350);
+			return;
+		}
+
+		const step = steps[index];
+		const line = addLine();
+		const prompt = document.createElement('span');
+		prompt.className = 'prompt';
+		prompt.textContent = '~ $ ';
+		const cmd = document.createElement('span');
+		line.append(prompt, cmd, caret);
+
+		let typed = 0;
+		(function type() {
+			cmd.textContent = step.cmd.slice(0, ++typed);
+			if (typed < step.cmd.length) {
+				timer = setTimeout(type, 28 + Math.random() * 30);
+				return;
+			}
+			timer = setTimeout(() => {
+				if (step.out) addLine('out').textContent = step.out;
+				timer = setTimeout(() => run(index + 1), step.out ? 220 : 0);
+			}, 160);
+		})();
+	}
+
+	skipEvents.forEach((type) => window.addEventListener(type, finish, { passive: true }));
+	timer = setTimeout(() => run(0), 250);
+})();

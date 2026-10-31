@@ -9,8 +9,21 @@
 	<link rel="icon" type="image/png" sizes="16x16" href="./assets/icons/w.png">
 	<meta content="width=device-width, initial-scale=1" name="viewport" />
 
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 	<link rel="stylesheet" href="./style.css">
 	<script src="https://kit.fontawesome.com/323396acdb.js" crossorigin="anonymous"></script>
+
+	<script>
+		// Play the terminal intro once per session, unless the visitor prefers reduced motion
+		(function () {
+			try {
+				if (!sessionStorage.getItem('intro-seen') && !matchMedia('(prefers-reduced-motion: reduce)').matches)
+					document.documentElement.classList.add('intro');
+			} catch (e) { }
+		})();
+	</script>
 
 	<script async src="https://www.googletagmanager.com/gtag/js?id=G-28WQVGZ0XS"></script>
 	<script>
@@ -26,89 +39,84 @@
 </head>
 
 <body>
-	<div id="card">
-		<div id="bio-card">
-			<img id="profile-pic" src="./assets/william.png" alt="William">
-
-			<h1>William Le</h1>
-			<h4>Software Engineer</h4>
-			<h4>ICPC Medalist</h4>
-			<div id="button-container">
-				<a href="https://www.linkedin.com/in/williamle817/" target="_blank" data-tooltip="LinkedIn"
-					data-tooltip-persistent>
-					<i id="linkedin" class="fab fa-linkedin-in"></i>
-				</a>
-				<a href="https://www.github.com/williamle817" target="_blank" data-tooltip="Github" data-tooltip-persistent>
-					<i id="github" class="fab fa-github"></i>
-				</a>
-			</div>
-		</div>
-
-		<hr id="vertical-divider">
-
-		<div id="info-card">
-			<div id="education">
-				<h2>Education</h2>
-				<div id="row">
-					<div id="col1">
-						<div id="img-title">
-							<img src="./assets/icons/uta.png" class="icon padded" />
-							<h3>UT Arlington</h3>
-						</div>
-						<h4 id="sub-img-title">B.S in Computer Science</h4>
-					</div>
-					<div id="col2">
-						<h3>2023 - 2027</h3>
-					</div>
-				</div>
-			</div>
-			<div id="experiences">
-				<h2>Experience</h2>
-				<div id="row">
-					<div id="col1">
-						<div id="img-title">
-							<img src="./assets/icons/microsoft.webp" class="icon" />
-							<h3>Microsoft</h3>
-						</div>
-						<h4 id="sub-img-title">Windows Defender Engine</h4>
-					</div>
-					<div id="col2">
-						<h3>Software Engineer Intern</h3>
-					</div>
-				</div>
-
-				<div id="row">
-					<div id="col1">
-						<div id="img-title">
-							<img src="./assets/icons/tk.png" class="icon" />
-							<h3>TK Technology</h3>
-						</div>
-						<h4 id="sub-img-title">Web Platform</h4>
-					</div>
-					<div id="col2">
-						<h3>Software Engineer Intern</h3>
-					</div>
-				</div>
-			</div>
-
-			<div id="awards">
-				<h2>Awards</h2>
-				<div id="row">
-					<div id="col1">
-						<div id="img-title">
-							<img src="./assets/icons/icpc.png" class="icon padded" />
-							<h3> ICPC Asia Regional</h3>
-						</div>
-					</div>
-					<div id="col2">
-						<h3>Bronze Medalist</h3>
-					</div>
-				</div>
-			</div>
-		</div>
+	<div id="intro" aria-hidden="true">
+		<div class="term"></div>
 	</div>
 
-	<div id="background"></div>
+	<main id="card">
+		<div id="bio-card">
+			<img id="profile-pic" src="./assets/william.png" alt="William Le">
+
+			<h1>William Le</h1>
+			<p class="role">Software Engineer</p>
+			<p class="role">ICPC Medalist</p>
+			<div id="button-container">
+				<a class="social" href="https://www.linkedin.com/in/williamle817/" target="_blank" rel="noopener"
+					aria-label="LinkedIn" data-tooltip="LinkedIn">
+					<i id="linkedin" class="fab fa-linkedin-in" aria-hidden="true"></i>
+				</a>
+				<a class="social" href="https://www.github.com/williamle817" target="_blank" rel="noopener"
+					aria-label="GitHub" data-tooltip="GitHub">
+					<i id="github" class="fab fa-github" aria-hidden="true"></i>
+				</a>
+			</div>
+		</div>
+
+		<hr id="divider">
+
+		<div id="info-card">
+			<section class="section">
+				<h2 class="section-title">Education</h2>
+				<ul class="entries">
+					<li class="entry">
+						<img src="./assets/icons/uta.png" class="icon padded" alt="" />
+						<div>
+							<h3 class="entry-title">UT Arlington</h3>
+							<p class="entry-sub">B.S in Computer Science</p>
+						</div>
+						<span class="entry-meta">2023 – 2027</span>
+					</li>
+				</ul>
+			</section>
+
+			<section class="section">
+				<h2 class="section-title">Experience</h2>
+				<ul class="entries">
+					<li class="entry">
+						<img src="./assets/icons/microsoft.webp" class="icon" alt="" />
+						<div>
+							<h3 class="entry-title">Microsoft</h3>
+							<p class="entry-sub">Windows Defender Engine</p>
+						</div>
+						<span class="entry-meta">Software Engineer Intern</span>
+					</li>
+					<li class="entry">
+						<img src="./assets/icons/tk.png" class="icon" alt="" />
+						<div>
+							<h3 class="entry-title">TK Technology</h3>
+							<p class="entry-sub">Web Platform</p>
+						</div>
+						<span class="entry-meta">Software Engineer Intern</span>
+					</li>
+				</ul>
+			</section>
+
+			<section class="section">
+				<h2 class="section-title">Awards</h2>
+				<ul class="entries">
+					<li class="entry">
+						<img src="./assets/icons/icpc.png" class="icon padded" alt="" />
+						<div>
+							<h3 class="entry-title">ICPC Asia Regional</h3>
+						</div>
+						<span class="entry-meta award">Bronze Medalist</span>
+					</li>
+				</ul>
+			</section>
+		</div>
+	</main>
+
+	<div id="background" aria-hidden="true"></div>
 
 	<script src="./script.js"></script>
 
